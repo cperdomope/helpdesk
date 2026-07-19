@@ -58,3 +58,15 @@ class Tecnico(Usuario):
     def actualizar_estado(self, ticket: Ticket, nuevo_estado: str) -> None:
         ticket.cambiar_estado(nuevo_estado)
         print(f"({self.nombre} realizó esta actualización)\n")
+
+
+class Administrador(Usuario):
+    def __init__(self, nombre: str, correo: str):
+        super().__init__(nombre, correo)
+
+    def borrar_ticket(self, lista_tickets: list, ticket: Ticket) -> None:
+        if ticket in lista_tickets:
+            lista_tickets.remove(ticket)
+            print(f"\n🗑️  {self.nombre} eliminó el ticket #{ticket.id}.\n")
+        else:
+            print(f"\n❌ El ticket #{ticket.id} no está en la lista.\n")

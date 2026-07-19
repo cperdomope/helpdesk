@@ -1,27 +1,19 @@
-from models import nuevo_ticket
+from models import Ticket, Cliente, Tecnico, Administrador, TicketYaResueltoError
 
-tickets: list[dict] = []
+tickets: list[Ticket] = []
 contador_id: int = 1
 
 
-class TicketYaResueltoError(Exception):
-    """Se lanza cuando se intenta modificar un ticket que ya está resuelto."""
-    pass
-
-
-def crear_ticket() -> None:
+def crear_ticket(cliente: Cliente) -> None:
     global contador_id
 
-    usuario = input("Ingrese el nombre del usuario: ")
     asunto = input("Asunto del problema: ")
     categoria = input("Categoría (hardware/software/red): ")
     prioridad = input("Ingrese la prioridad del ticket (alta/media/baja): ")
 
-    ticket = nuevo_ticket(contador_id, usuario, asunto, categoria, prioridad)
+    ticket = cliente.crear_ticket(contador_id, asunto, categoria, prioridad)
     tickets.append(ticket)
     contador_id += 1
-
-    print(f"\n✅ Ticket #{ticket['id']} creado con éxito.\n")
 
 
 def listar_tickets() -> None:
@@ -31,11 +23,11 @@ def listar_tickets() -> None:
 
     print("\n--- Lista de Tickets ---")
     for t in tickets:
-        print(f"#{t['id']} | Usuario: {t['usuario']} | Asunto: {t['asunto']} | Estado: {t['estado']} | Prioridad: {t['prioridad']}")
+        print(f"#{t.id} | Usuario: {t.usuario} | Asunto: {t.asunto} | Estado: {t.estado} | Prioridad: {t.prioridad}")
     print()
 
 
-def asignar_ticket() -> None:
+def asignar_ticket(tecnico: Tecnico) -> None:
     if not tickets:
         print("\n⚠️  No hay tickets registrados.\n")
         return
@@ -44,17 +36,11 @@ def asignar_ticket() -> None:
     id_buscado = int(input("¿Qué número de ticket deseas actualizar? "))
 
     for t in tickets:
-        if t["id"] == id_buscado:
+        if t.id == id_buscado:
+            nuevo_estado = input(
+                "Ingrese el nuevo estado (en progreso/resuelto): ")
             try:
-                if t["estado"] == "resuelto":
-                    raise TicketYaResueltoError(
-                        f"El ticket #{t['id']} ya está resuelto y no puede modificarse.")
-
-                nuevo_estado = input(
-                    "Ingrese el nuevo estado (en progreso/resuelto): ")
-                t["estado"] = nuevo_estado
-                print(
-                    f"\n✅ Ticket #{t['id']} actualizado a estado '{nuevo_estado}' con éxito.\n")
+                tecnico.actualizar_estado(t, nuevo_estado)
             except TicketYaResueltoError as error:
                 print(f"\n⚠️  {error}\n")
             return
