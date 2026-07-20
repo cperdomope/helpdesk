@@ -5,8 +5,9 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from werkzeug.security import generate_password_hash
 from database import SessionLocal, init_db
 from models import Usuario, Ticket, Comentario, HistorialTicket
-from functools import wraps
 from forms import TicketForm
+from sqlalchemy import text
+from flask import abort
 
 app = Flask(__name__)
 app.secret_key = "helpdesk-secret-key-change-in-production"
@@ -32,14 +33,15 @@ def load_user(user_id):
     return SessionLocal.query(Usuario).get(int(user_id))
 
 
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.es_admin:
-            flash("Acceso no autorizado.", "error")
-            return redirect(url_for("dashboard"))
-        return f(*args, **kwargs)
-    return decorated_function
+def rol_requerido(*roles):
+    def decorador(f):
+        @wraps(f)
+        def funcion_envuelta(*args, **kwargs):
+            if current_user.rol not in roles:
+                abort(403)
+            return f(*args, **kwargs)
+        return funcion_envuelta
+    return decorador
 
 
 def registrar_historial(db, ticket, usuario, accion, detalle=None):
@@ -72,6 +74,15 @@ def login():
         flash("Credenciales incorrectas.", "error")
         return redirect(url_for("login"))
     return render_template("login.html")
+
+
+@app.route('/health')
+def health():
+    try:
+        SessionLocal.execute(text('SELECT 1'))
+        return {'status': 'ok', 'db': 'connected'}, 200
+    except Exception:
+        return {'status': 'error', 'db': 'disconnected'}, 503
 
 
 @app.route("/logout")
@@ -256,7 +267,7 @@ def asignar_ticket(ticket_id):
 # ── Admin: Usuarios ─────────────────────────────────────────────────
 @app.route("/admin/usuarios")
 @login_required
-@admin_required
+@rol_requerido('admin')
 def admin_usuarios():
     db = SessionLocal()
 
@@ -266,7 +277,7 @@ def admin_usuarios():
 
 @app.route("/admin/usuarios/crear", methods=["GET", "POST"])
 @login_required
-@admin_required
+@rol_requerido('admin')
 def admin_crear_usuario():
 
     flash("Acceso no autorizado.", "error")
@@ -293,11 +304,8 @@ def admin_crear_usuario():
 
 @app.route("/admin/usuarios/<int:user_id>/toggle", methods=["POST"])
 @login_required
-@admin_required
+@rol_requerido('admin')
 def admin_toggle_usuario(user_id):
-    if not current_user.es_admin:
-        flash("Acceso no autorizado.", "error")
-        return redirect(url_for("dashboard"))
     db = SessionLocal()
     u = db.query(Usuario).get(user_id)
     if u and u.id != current_user.id:
