@@ -14,11 +14,14 @@ class Usuario(Base, UserMixin):
     password_hash = Column(String(256), nullable=False)
     nombre = Column(String(120), nullable=False)
     email = Column(String(120), unique=True, nullable=False)
-    rol = Column(SAEnum("admin", "tecnico", "usuario", name="rol_enum"), nullable=False, default="usuario")
+    rol = Column(SAEnum("admin", "tecnico", "usuario",
+                 name="rol_enum"), nullable=False, default="usuario")
     activo = Column(Integer, default=1)
 
-    tickets_creados = relationship("Ticket", back_populates="creador", foreign_keys="Ticket.creador_id")
-    tickets_asignados = relationship("Ticket", back_populates="tecnico", foreign_keys="Ticket.tecnico_id")
+    tickets_creados = relationship(
+        "Ticket", back_populates="creador", foreign_keys="Ticket.creador_id")
+    tickets_asignados = relationship(
+        "Ticket", back_populates="tecnico", foreign_keys="Ticket.tecnico_id")
     comentarios = relationship("Comentario", back_populates="autor")
     historiales = relationship("HistorialTicket", back_populates="usuario")
 
@@ -51,17 +54,25 @@ class Ticket(Base):
     titulo = Column(String(200), nullable=False)
     descripcion = Column(Text, nullable=False)
     categoria = Column(String(50), nullable=False)
-    prioridad = Column(SAEnum("alta", "media", "baja", name="prioridad_enum"), nullable=False, default="media")
-    estado = Column(SAEnum("abierto", "en_progreso", "resuelto", "cerrado", name="estado_enum"), nullable=False, default="abierto")
+    prioridad = Column(SAEnum("alta", "media", "baja",
+                       name="prioridad_enum"), nullable=False, default="media")
+    estado = Column(SAEnum("abierto", "en_progreso", "resuelto", "cerrado",
+                    name="estado_enum"), nullable=False, default="abierto")
     creador_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     tecnico_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
-    fecha_creacion = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    fecha_actualizacion = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-
-    creador = relationship("Usuario", back_populates="tickets_creados", foreign_keys=[creador_id])
-    tecnico = relationship("Usuario", back_populates="tickets_asignados", foreign_keys=[tecnico_id])
-    comentarios = relationship("Comentario", back_populates="ticket", order_by="Comentario.fecha.asc()")
-    historiales = relationship("HistorialTicket", back_populates="ticket", order_by="HistorialTicket.fecha.asc()")
+    fecha_creacion = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc))
+    fecha_actualizacion = Column(DateTime, default=lambda: datetime.now(
+        timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    archivo_adjunto = Column(String(255), nullable=True)
+    creador = relationship(
+        "Usuario", back_populates="tickets_creados", foreign_keys=[creador_id])
+    tecnico = relationship(
+        "Usuario", back_populates="tickets_asignados", foreign_keys=[tecnico_id])
+    comentarios = relationship(
+        "Comentario", back_populates="ticket", order_by="Comentario.fecha.asc()")
+    historiales = relationship(
+        "HistorialTicket", back_populates="ticket", order_by="HistorialTicket.fecha.asc()")
 
     def __repr__(self):
         return f"<Ticket #{self.id} - {self.titulo}>"
