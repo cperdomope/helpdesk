@@ -6,6 +6,7 @@ from werkzeug.security import generate_password_hash
 from database import SessionLocal, init_db
 from models import Usuario, Ticket, Comentario, HistorialTicket
 from functools import wraps
+from forms import TicketForm
 
 app = Flask(__name__)
 app.secret_key = "helpdesk-secret-key-change-in-production"
@@ -149,13 +150,14 @@ def tickets():
 @app.route("/tickets/crear", methods=["GET", "POST"])
 @login_required
 def crear_ticket():
-    if request.method == "POST":
+    form = TicketForm()
+    if form.validate_on_submit():
         db = SessionLocal()
         t = Ticket(
-            titulo=request.form["titulo"].strip(),
-            descripcion=request.form["descripcion"].strip(),
-            categoria=request.form["categoria"],
-            prioridad=request.form["prioridad"],
+            titulo=form.titulo.data.strip(),
+            descripcion=form.descripcion.data.strip(),
+            categoria=form.categoria.data,
+            prioridad=form.prioridad.data,
             creador_id=current_user.id,
         )
         db.add(t)
@@ -164,7 +166,7 @@ def crear_ticket():
                             f"Ticket #{t.id} creado por {current_user.username}")
         flash(f"Ticket #{t.id} creado correctamente.", "success")
         return redirect(url_for("ver_ticket", ticket_id=t.id))
-    return render_template("crear_ticket.html")
+    return render_template("crear_ticket.html", form=form)
 
 
 @app.route("/tickets/<int:ticket_id>")
