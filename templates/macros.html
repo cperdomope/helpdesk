@@ -1,0 +1,20 @@
+{% macro badge_estado(estado) %}
+{% set map = {'abierto':'bg-yellow-100 text-yellow-700','en_progreso':'bg-blue-100 text-blue-700','resuelto':'bg-green-100 text-green-700','cerrado':'bg-gray-100 text-gray-600'} %}
+<span class="px-2 py-0.5 rounded-full text-xs font-medium {{ map.get(estado, 'bg-gray-100 text-gray-600') }}">
+    {{ estado|replace('_',' ')|capitalize }}
+</span>
+{% endmacro %}
+
+{% macro badge_rol(rol) %}
+{% set map = {'admin':'bg-red-100 text-red-700','tecnico':'bg-blue-100 text-blue-700','usuario':'bg-green-100 text-green-700'} %}
+<span class="ml-1 px-2 py-0.5 rounded-full text-xs font-medium {{ map.get(rol, 'bg-gray-100 text-gray-600') }}">
+    {{ rol|capitalize }}
+</span>
+{% endmacro %}
+
+{% macro badge_prioridad(prioridad) %}
+{% set map = {'alta':'bg-red-100 text-red-700','media':'bg-yellow-100 text-yellow-700','baja':'bg-gray-100 text-gray-600'} %}
+<span class="px-2 py-0.5 rounded-full text-xs font-medium {{ map.get(prioridad, 'bg-gray-100 text-gray-600') }}">
+    {{ prioridad|capitalize }}
+</span>
+{% endmacro %}

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% from "macros.html" import badge_rol %}
     <title>{% block title %}HelpDesk{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -29,12 +30,7 @@
                 <div class="flex items-center space-x-4">
                     <span class="text-sm text-gray-500">
                         {{ current_user.nombre }}
-                        <span class="ml-1 px-2 py-0.5 rounded-full text-xs font-medium
-                            {% if current_user.es_admin %}bg-red-100 text-red-700
-                            {% elif current_user.es_tecnico %}bg-blue-100 text-blue-700
-                            {% else %}bg-green-100 text-green-700{% endif %}">
-                            {{ current_user.rol|capitalize }}
-                        </span>
+                        {{ badge_rol(current_user.rol) }}
                     </span>
                     <a href="{{ url_for('logout') }}" class="text-gray-400 hover:text-red-500 text-sm">Salir</a>
                 </div>

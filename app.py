@@ -8,6 +8,16 @@ from models import Usuario, Ticket, Comentario, HistorialTicket
 app = Flask(__name__)
 app.secret_key = "helpdesk-secret-key-change-in-production"
 
+
+@app.template_filter('fecha_es')
+def fecha_es(valor, con_hora=False):
+    if not valor:
+        return ""
+    if con_hora:
+        return valor.strftime('%d/%m/%Y %H:%M')
+    return valor.strftime('%d/%m/%Y')
+
+
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
@@ -20,7 +30,8 @@ def load_user(user_id):
 
 
 def registrar_historial(db, ticket, usuario, accion, detalle=None):
-    h = HistorialTicket(ticket_id=ticket.id, usuario_id=usuario.id, accion=accion, detalle=detalle)
+    h = HistorialTicket(ticket_id=ticket.id,
+                        usuario_id=usuario.id, accion=accion, detalle=detalle)
     db.add(h)
     db.commit()
 
@@ -68,7 +79,8 @@ def dashboard():
         abiertos = db.query(Ticket).filter_by(estado="abierto").count()
         en_progreso = db.query(Ticket).filter_by(estado="en_progreso").count()
         resueltos = db.query(Ticket).filter_by(estado="resuelto").count()
-        tickets_recientes = db.query(Ticket).order_by(Ticket.fecha_creacion.desc()).limit(5).all()
+        tickets_recientes = db.query(Ticket).order_by(
+            Ticket.fecha_creacion.desc()).limit(5).all()
         usuarios_count = db.query(Usuario).filter_by(activo=1).count()
     elif user.es_tecnico:
         mis_tickets = db.query(Ticket).filter_by(tecnico_id=user.id).all()
@@ -86,7 +98,8 @@ def dashboard():
         abiertos = sum(1 for t in mis_tickets if t.estado == "abierto")
         en_progreso = sum(1 for t in mis_tickets if t.estado == "en_progreso")
         resueltos = sum(1 for t in mis_tickets if t.estado == "resuelto")
-        tickets_recientes = db.query(Ticket).filter_by(creador_id=user.id).order_by(Ticket.fecha_creacion.desc()).limit(5).all()
+        tickets_recientes = db.query(Ticket).filter_by(creador_id=user.id).order_by(
+            Ticket.fecha_creacion.desc()).limit(5).all()
         usuarios_count = None
     return render_template("dashboard.html",
                            total=total, abiertos=abiertos,
@@ -108,7 +121,8 @@ def tickets():
     if user.es_usuario:
         query = query.filter_by(creador_id=user.id)
     elif user.es_tecnico:
-        query = query.filter((Ticket.tecnico_id == user.id) | (Ticket.tecnico_id.is_(None)))
+        query = query.filter((Ticket.tecnico_id == user.id)
+                             | (Ticket.tecnico_id.is_(None)))
 
     if filtro_estado:
         query = query.filter_by(estado=filtro_estado)
@@ -134,7 +148,8 @@ def crear_ticket():
         )
         db.add(t)
         db.commit()
-        registrar_historial(db, t, current_user, "Ticket creado", f"Ticket #{t.id} creado por {current_user.username}")
+        registrar_historial(db, t, current_user, "Ticket creado",
+                            f"Ticket #{t.id} creado por {current_user.username}")
         flash(f"Ticket #{t.id} creado correctamente.", "success")
         return redirect(url_for("ver_ticket", ticket_id=t.id))
     return render_template("crear_ticket.html")
@@ -151,7 +166,8 @@ def ver_ticket(ticket_id):
     if current_user.es_usuario and ticket.creador_id != current_user.id:
         flash("No tienes acceso a este ticket.", "error")
         return redirect(url_for("tickets"))
-    tecnicos = db.query(Usuario).filter(Usuario.rol.in_(["tecnico", "admin"]), Usuario.activo == 1).all()
+    tecnicos = db.query(Usuario).filter(Usuario.rol.in_(
+        ["tecnico", "admin"]), Usuario.activo == 1).all()
     return render_template("ver_ticket.html", ticket=ticket, tecnicos=tecnicos)
 
 
@@ -165,11 +181,13 @@ def comentar(ticket_id):
         return redirect(url_for("tickets"))
     contenido = request.form["contenido"].strip()
     if contenido:
-        c = Comentario(contenido=contenido, ticket_id=ticket.id, usuario_id=current_user.id)
+        c = Comentario(contenido=contenido, ticket_id=ticket.id,
+                       usuario_id=current_user.id)
         db.add(c)
         ticket.fecha_actualizacion = datetime.now(timezone.utc)
         db.commit()
-        registrar_historial(db, ticket, current_user, "Comentario agregado", contenido[:100])
+        registrar_historial(db, ticket, current_user,
+                            "Comentario agregado", contenido[:100])
     return redirect(url_for("ver_ticket", ticket_id=ticket.id))
 
 
@@ -186,7 +204,8 @@ def cambiar_estado(ticket_id):
     ticket.estado = nuevo_estado
     ticket.fecha_actualizacion = datetime.now(timezone.utc)
     db.commit()
-    registrar_historial(db, ticket, current_user, "Estado cambiado", f"'{estado_anterior}' → '{nuevo_estado}'")
+    registrar_historial(db, ticket, current_user, "Estado cambiado",
+                        f"'{estado_anterior}' → '{nuevo_estado}'")
     flash(f"Ticket #{ticket.id} actualizado a '{nuevo_estado}'.", "success")
     return redirect(url_for("ver_ticket", ticket_id=ticket.id))
 
@@ -210,10 +229,12 @@ def asignar_ticket(ticket_id):
         ticket.tecnico_id = None
     ticket.fecha_actualizacion = datetime.now(timezone.utc)
     db.commit()
-    nuevo_tecnico = db.query(Usuario).get(int(tecnico_id)) if tecnico_id else None
+    nuevo_tecnico = db.query(Usuario).get(
+        int(tecnico_id)) if tecnico_id else None
     nombre_anterior = tecnico_anterior.username if tecnico_anterior else "Ninguno"
     nombre_nuevo = nuevo_tecnico.username if nuevo_tecnico else "Ninguno"
-    registrar_historial(db, ticket, current_user, "Tecnico asignado", f"Tecnico: '{nombre_anterior}' → '{nombre_nuevo}'")
+    registrar_historial(db, ticket, current_user, "Tecnico asignado",
+                        f"Tecnico: '{nombre_anterior}' → '{nombre_nuevo}'")
     flash(f"Ticket #{ticket.id} asignado correctamente.", "success")
     return redirect(url_for("ver_ticket", ticket_id=ticket.id))
 
@@ -276,7 +297,8 @@ if __name__ == "__main__":
     init_db()
     db = SessionLocal()
     if not db.query(Usuario).filter_by(username="admin").first():
-        admin = Usuario(username="admin", nombre="Administrador", email="admin@helpdesk.local", rol="admin")
+        admin = Usuario(username="admin", nombre="Administrador",
+                        email="admin@helpdesk.local", rol="admin")
         admin.set_password("admin123")
         db.add(admin)
         db.commit()
