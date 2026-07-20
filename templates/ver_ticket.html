@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Ticket #{{ ticket.id }} - HelpDesk{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <a href="{{ url_for('tickets') }}" class="text-indigo-600 hover:text-indigo-800 text-sm mb-4 inline-block">&larr; Volver a tickets</a>
+
+    <div class="bg-white rounded-xl shadow-sm border p-6 mb-6">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h1 class="text-xl font-bold text-gray-800">Ticket #{{ ticket.id }} &mdash; {{ ticket.titulo }}</h1>
+                <p class="text-sm text-gray-500 mt-1">
+                    Creado por <strong>{{ ticket.creador.username }}</strong> el {{ ticket.fecha_creacion.strftime('%d/%m/%Y a las %H:%M') }}
+                </p>
+            </div>
+            <span class="px-3 py-1 rounded-full text-sm font-medium
+                {% if ticket.estado == 'abierto' %}bg-yellow-100 text-yellow-700
+                {% elif ticket.estado == 'en_progreso' %}bg-blue-100 text-blue-700
+                {% elif ticket.estado == 'resuelto' %}bg-green-100 text-green-700
+                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                {{ ticket.estado|replace('_',' ')|capitalize }}
+            </span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4 text-sm text-gray-600 mb-4 pb-4 border-b">
+            <div><span class="text-gray-400">Categoria:</span> {{ ticket.categoria|capitalize }}</div>
+            <div>
+                <span class="text-gray-400">Prioridad:</span>
+                <span class="{% if ticket.prioridad == 'alta' %}text-red-600 font-medium{% endif %}">{{ ticket.prioridad|capitalize }}</span>
+            </div>
+            <div><span class="text-gray-400">Asignado a:</span> {{ ticket.tecnico.username if ticket.tecnico else 'Sin asignar' }}</div>
+        </div>
+
+        <p class="text-gray-700 whitespace-pre-wrap">{{ ticket.descripcion }}</p>
+
+        {% if current_user.es_admin or current_user.es_tecnico %}
+        <div class="mt-4 pt-4 border-t flex flex-wrap gap-3">
+            <form method="POST" action="{{ url_for('cambiar_estado', ticket_id=ticket.id) }}" class="flex items-center gap-2">
+                <select name="estado" class="px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <option value="abierto" {% if ticket.estado=='abierto' %}selected{% endif %}>Abierto</option>
+                    <option value="en_progreso" {% if ticket.estado=='en_progreso' %}selected{% endif %}>En Progreso</option>
+                    <option value="resuelto" {% if ticket.estado=='resuelto' %}selected{% endif %}>Resuelto</option>
+                    <option value="cerrado" {% if ticket.estado=='cerrado' %}selected{% endif %}>Cerrado</option>
+                </select>
+                <button type="submit" class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 transition">Cambiar</button>
+            </form>
+
+            {% if current_user.es_admin %}
+            <form method="POST" action="{{ url_for('asignar_ticket', ticket_id=ticket.id) }}" class="flex items-center gap-2">
+                <select name="tecnico_id" class="px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <option value="">Sin asignar</option>
+                    {% for tech in tecnicos %}
+                    <option value="{{ tech.id }}" {% if ticket.tecnico_id == tech.id %}selected{% endif %}>{{ tech.username }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="px-3 py-1.5 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-700 transition">Asignar</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Chat / Comentarios + Historial -->
+    <div class="bg-white rounded-xl shadow-sm border overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b bg-gray-50">
+            <h2 class="font-semibold text-gray-700">Conversacion e Historial</h2>
+        </div>
+        <div class="p-6 space-y-4 max-h-[500px] overflow-y-auto" id="chat">
+            {% set all_items = [] %}
+            {% for c in ticket.comentarios %}
+                {% set _ = all_items.append(('comentario', c.fecha, c)) %}
+            {% endfor %}
+            {% for h in ticket.historiales %}
+                {% set _ = all_items.append(('historial', h.fecha, h)) %}
+            {% endfor %}
+            {% for type, fecha, item in all_items|sort(attribute='1') %}
+                {% if type == 'comentario' %}
+                <div class="flex {% if item.usuario_id == current_user.id %}justify-end{% else %}justify-start{% endif %}">
+                    <div class="max-w-[75%] {% if item.usuario_id == current_user.id %}bg-indigo-600 text-white chat-bubble-right{% else %}bg-gray-200 text-gray-800 chat-bubble-left{% endif %} px-4 py-3">
+                        <div class="text-xs {% if item.usuario_id == current_user.id %}text-indigo-200{% else %}text-gray-500{% endif %} mb-1">
+                            {{ item.autor.username }} &middot; {{ item.fecha.strftime('%d/%m/%Y %H:%M') }}
+                        </div>
+                        <div class="text-sm whitespace-pre-wrap">{{ item.contenido }}</div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="flex justify-center">
+                    <div class="bg-gray-100 text-gray-500 text-xs px-4 py-2 rounded-full border">
+                        <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        {{ item.usuario.username }} &middot; {{ item.accion }}
+                        {% if item.detalle %} &mdash; {{ item.detalle }}{% endif %}
+                        <span class="text-gray-400 ml-1">{{ item.fecha.strftime('%d/%m/%Y %H:%M') }}</span>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+
+            {% if not all_items %}
+            <p class="text-center text-gray-400 text-sm py-4">No hay actividad aun.</p>
+            {% endif %}
+        </div>
+
+        {% if ticket.estado != 'cerrado' %}
+        <div class="border-t p-4">
+            <form method="POST" action="{{ url_for('comentar', ticket_id=ticket.id) }}" class="flex gap-3">
+                <input type="text" name="contenido" required placeholder="Escribe un comentario..."
+                    class="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition text-sm">
+                <button type="submit" class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition text-sm font-medium">
+                    Enviar
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    const chat = document.getElementById('chat');
+    chat.scrollTop = chat.scrollHeight;
+</script>
+{% endblock %}
