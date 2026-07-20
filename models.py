@@ -64,7 +64,6 @@ class Ticket(Base):
         DateTime, default=lambda: datetime.now(timezone.utc))
     fecha_actualizacion = Column(DateTime, default=lambda: datetime.now(
         timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    archivo_adjunto = Column(String(255), nullable=True)
     creador = relationship(
         "Usuario", back_populates="tickets_creados", foreign_keys=[creador_id])
     tecnico = relationship(
@@ -73,6 +72,8 @@ class Ticket(Base):
         "Comentario", back_populates="ticket", order_by="Comentario.fecha.asc()")
     historiales = relationship(
         "HistorialTicket", back_populates="ticket", order_by="HistorialTicket.fecha.asc()")
+    archivos = relationship(
+        'ArchivoAdjunto', back_populates='ticket', cascade='all, delete-orphan')
 
     def __repr__(self):
         return f"<Ticket #{self.id} - {self.titulo}>"
@@ -109,3 +110,15 @@ class HistorialTicket(Base):
 
     def __repr__(self):
         return f"<HistorialTicket #{self.id} - {self.accion}>"
+
+
+class ArchivoAdjunto(Base):
+    __tablename__ = 'archivos_adjuntos'
+
+    id = Column(Integer, primary_key=True)
+    ticket_id = Column(Integer, ForeignKey('tickets.id'), nullable=False)
+    nombre_original = Column(String(255), nullable=False)
+    nombre_guardado = Column(String(255), nullable=False, unique=True)
+    fecha_subida = Column(DateTime, default=datetime.utcnow)
+
+    ticket = relationship('Ticket', back_populates='archivos')

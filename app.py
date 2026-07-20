@@ -4,13 +4,31 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash
 from database import SessionLocal, init_db
-from models import Usuario, Ticket, Comentario, HistorialTicket
+from models import Usuario, Ticket, Comentario, HistorialTicket, ArchivoAdjunto
 from forms import TicketForm
 from sqlalchemy import text
 from flask import abort
+import os
+from werkzeug.utils import secure_filename
+import uuid
+from flask import send_from_directory
 
 app = Flask(__name__)
 app.secret_key = "helpdesk-secret-key-change-in-production"
+
+
+UPLOAD_FOLDER = 'uploads'
+EXTENSIONES_PERMITIDAS = {'pdf', 'png', 'jpg', 'jpeg', 'docx', 'xlsx'}
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB máximo
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+def extension_permitida(nombre_archivo):
+    return '.' in nombre_archivo and \
+        nombre_archivo.rsplit('.', 1)[1].lower() in EXTENSIONES_PERMITIDAS
 
 
 @app.template_filter('fecha_es')
@@ -261,7 +279,56 @@ def asignar_ticket(ticket_id):
     registrar_historial(db, ticket, current_user, "Tecnico asignado",
                         f"Tecnico: '{nombre_anterior}' → '{nombre_nuevo}'")
     flash(f"Ticket #{ticket.id} asignado correctamente.", "success")
-    return redirect(url_for("ver_ticket", ticket_id=ticket.id))
+    return redirect(url_for('ver_ticket', ticket_id=ticket_id))
+
+
+@app.route('/tickets/<int:ticket_id>/subir_archivo', methods=['POST'])
+@login_required
+def subir_archivo(ticket_id):
+    db = SessionLocal()
+    archivo = request.files.get('archivo')
+
+    if not archivo or archivo.filename == '':
+        flash('No seleccionaste ningún archivo', 'error')
+        return redirect(url_for('ver_ticket', ticket_id=ticket_id))
+
+    if not extension_permitida(archivo.filename):
+        flash('Extensión de archivo no permitida', 'error')
+        return redirect(url_for('ver_ticket', ticket_id=ticket_id))
+
+    nombre_original = secure_filename(archivo.filename)
+    extension = nombre_original.rsplit('.', 1)[1].lower()
+    nombre_guardado = f"{uuid.uuid4().hex}.{extension}"
+
+    archivo.save(os.path.join(app.config['UPLOAD_FOLDER'], nombre_guardado))
+
+    nuevo_adjunto = ArchivoAdjunto(
+        ticket_id=ticket_id,
+        nombre_original=nombre_original,
+        nombre_guardado=nombre_guardado
+    )
+    db.add(nuevo_adjunto)
+    db.commit()
+
+    flash('Archivo subido correctamente', 'success')
+    return redirect(url_for('ver_ticket', ticket_id=ticket_id))
+
+
+@app.route('/archivos/<int:archivo_id>/descargar')
+@login_required
+def descargar_archivo(archivo_id):
+    db = SessionLocal()
+    archivo = db.query(ArchivoAdjunto).filter_by(id=archivo_id).first()
+
+    if not archivo:
+        abort(404)
+
+    return send_from_directory(
+        app.config['UPLOAD_FOLDER'],
+        archivo.nombre_guardado,
+        as_attachment=True,
+        download_name=archivo.nombre_original
+    )
 
 
 # ── Admin: Usuarios ─────────────────────────────────────────────────
