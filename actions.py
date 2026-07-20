@@ -1,48 +1,80 @@
-from models import Ticket, Cliente, Tecnico, Administrador, TicketYaResueltoError
-
-tickets: list[Ticket] = []
-contador_id: int = 1
+from database import SessionLocal
+from models import Usuario, Ticket
 
 
-def crear_ticket(cliente: Cliente) -> None:
-    global contador_id
+def crear_ticket(usuario_actual: Usuario) -> None:
+    db = SessionLocal()
 
-    asunto = input("Asunto del problema: ")
+    titulo = input("Asunto del problema: ")
+    descripcion = input("Descripción detallada: ")
     categoria = input("Categoría (hardware/software/red): ")
     prioridad = input("Ingrese la prioridad del ticket (alta/media/baja): ")
 
-    ticket = cliente.crear_ticket(contador_id, asunto, categoria, prioridad)
-    tickets.append(ticket)
-    contador_id += 1
+    nuevo_ticket = Ticket(
+        titulo=titulo,
+        descripcion=descripcion,
+        categoria=categoria,
+        prioridad=prioridad,
+        estado="abierto",
+        creador_id=usuario_actual.id
+    )
+
+    db.add(nuevo_ticket)
+    db.commit()
+    db.refresh(nuevo_ticket)
+
+    print(f"\n✅ Ticket #{nuevo_ticket.id} creado correctamente.\n")
+    db.close()
 
 
 def listar_tickets() -> None:
+    db = SessionLocal()
+    tickets = db.query(Ticket).all()
+
     if not tickets:
         print("\n⚠️  No hay tickets registrados.\n")
+        db.close()
         return
 
     print("\n--- Lista de Tickets ---")
     for t in tickets:
-        print(f"#{t.id} | Usuario: {t.usuario} | Asunto: {t.asunto} | Estado: {t.estado} | Prioridad: {t.prioridad}")
+        print(f"#{t.id} | Creador: {t.creador.username} | Título: {t.titulo} | Estado: {t.estado} | Prioridad: {t.prioridad}")
     print()
 
+    db.close()
 
-def asignar_ticket(tecnico: Tecnico) -> None:
+
+def asignar_ticket(usuario_actual: Usuario) -> None:
+    db = SessionLocal()
+    tickets = db.query(Ticket).all()
+
     if not tickets:
         print("\n⚠️  No hay tickets registrados.\n")
+        db.close()
         return
 
-    listar_tickets()
-    id_buscado = int(input("¿Qué número de ticket deseas actualizar? "))
-
+    print("\n--- Lista de Tickets ---")
     for t in tickets:
-        if t.id == id_buscado:
-            nuevo_estado = input(
-                "Ingrese el nuevo estado (en progreso/resuelto): ")
-            try:
-                tecnico.actualizar_estado(t, nuevo_estado)
-            except TicketYaResueltoError as error:
-                print(f"\n⚠️  {error}\n")
-            return
+        print(f"#{t.id} | Creador: {t.creador.username} | Título: {t.titulo} | Estado: {t.estado} | Prioridad: {t.prioridad}")
+    print()
 
-    print(f"\n❌ No se encontró un ticket con el ID #{id_buscado}.\n")
+    id_buscado = int(input("¿Qué número de ticket deseas actualizar? "))
+    ticket = db.query(Ticket).filter_by(id=id_buscado).first()
+
+    if not ticket:
+        print(f"\n❌ No se encontró un ticket con el ID #{id_buscado}.\n")
+        db.close()
+        return
+
+    if ticket.estado == "resuelto":
+        print("\n⚠️  Este ticket ya está resuelto.\n")
+        db.close()
+        return
+
+    nuevo_estado = input("Ingrese el nuevo estado (en_progreso/resuelto): ")
+    ticket.estado = nuevo_estado
+    ticket.tecnico_id = usuario_actual.id
+
+    db.commit()
+    print(f"\n✅ Ticket #{ticket.id} actualizado a '{nuevo_estado}'.\n")
+    db.close()

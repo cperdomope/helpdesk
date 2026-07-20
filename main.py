@@ -1,24 +1,38 @@
 from actions import crear_ticket, listar_tickets, asignar_ticket
-from models import Cliente, Tecnico
+from database import SessionLocal
+from models import Usuario
+
+
+def login() -> Usuario | None:
+    db = SessionLocal()
+    username = input("Usuario: ")
+    usuario = db.query(Usuario).filter_by(username=username).first()
+
+    if not usuario:
+        print("\n❌ Usuario no encontrado.\n")
+        db.close()
+        return None
+
+    if not usuario.activo:
+        print("\n❌ Usuario inactivo.\n")
+        db.close()
+        return None
+
+    db.close()
+    return usuario
 
 
 def menu() -> None:
     print("===== BIENVENIDO AL HELP DESK =====")
-    nombre = input("Ingresa tu nombre: ")
-    correo = input("Ingresa tu correo: ")
-    rol = input("¿Cuál es tu rol? (cliente/tecnico): ").strip().lower()
-
-    if rol == "cliente":
-        usuario_actual = Cliente(nombre, correo)
-    elif rol == "tecnico":
-        usuario_actual = Tecnico(nombre, correo)
-    else:
-        print("\n❌ Rol no válido. Cerrando el sistema.\n")
+    usuario_actual = login()
+    if usuario_actual is None:
         return
+
+    rol = usuario_actual.rol
 
     while True:
         print(f"\n===== HELP DESK ({usuario_actual}) =====")
-        if rol == "cliente":
+        if rol == "usuario":
             print("1. Crear ticket")
             print("2. Listar tickets")
             print("3. Salir")
@@ -29,7 +43,7 @@ def menu() -> None:
 
         opcion = input("Elige una opción: ")
 
-        if rol == "cliente":
+        if rol == "usuario":
             if opcion == "1":
                 crear_ticket(usuario_actual)
             elif opcion == "2":
