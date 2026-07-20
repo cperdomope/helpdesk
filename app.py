@@ -1,9 +1,11 @@
+from functools import wraps
 from datetime import datetime, timezone
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash
 from database import SessionLocal, init_db
 from models import Usuario, Ticket, Comentario, HistorialTicket
+from functools import wraps
 
 app = Flask(__name__)
 app.secret_key = "helpdesk-secret-key-change-in-production"
@@ -27,6 +29,16 @@ login_manager.login_message = "Por favor, inicia sesion para continuar."
 @login_manager.user_loader
 def load_user(user_id):
     return SessionLocal.query(Usuario).get(int(user_id))
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.es_admin:
+            flash("Acceso no autorizado.", "error")
+            return redirect(url_for("dashboard"))
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 def registrar_historial(db, ticket, usuario, accion, detalle=None):
@@ -242,21 +254,21 @@ def asignar_ticket(ticket_id):
 # ── Admin: Usuarios ─────────────────────────────────────────────────
 @app.route("/admin/usuarios")
 @login_required
+@admin_required
 def admin_usuarios():
-    if not current_user.es_admin:
-        flash("Acceso no autorizado.", "error")
-        return redirect(url_for("dashboard"))
     db = SessionLocal()
+
     usuarios = db.query(Usuario).order_by(Usuario.id).all()
     return render_template("admin_usuarios.html", usuarios=usuarios)
 
 
 @app.route("/admin/usuarios/crear", methods=["GET", "POST"])
 @login_required
+@admin_required
 def admin_crear_usuario():
-    if not current_user.es_admin:
-        flash("Acceso no autorizado.", "error")
-        return redirect(url_for("dashboard"))
+
+    flash("Acceso no autorizado.", "error")
+    return redirect(url_for("dashboard"))
     if request.method == "POST":
         db = SessionLocal()
         username = request.form["username"].strip()
@@ -279,6 +291,7 @@ def admin_crear_usuario():
 
 @app.route("/admin/usuarios/<int:user_id>/toggle", methods=["POST"])
 @login_required
+@admin_required
 def admin_toggle_usuario(user_id):
     if not current_user.es_admin:
         flash("Acceso no autorizado.", "error")
